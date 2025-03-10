@@ -1,0 +1,80 @@
+services:
+
+  app:
+    build:
+        context: ./
+        dockerfile: Dockerfile
+    container_name: agenssistant
+    command: sleep infinity
+    user: root
+    depends_on:
+      - ollama
+    volumes:
+      - ./:/workspace/agenssistant
+    networks:
+      - ollama-docker
+      - host
+    env_file: .env
+
+  ollama:
+    image: ollama/ollama:latest
+    pull_policy: always
+    container_name: ollama
+    restart: unless-stopped
+    hostname: ollama
+    networks:
+      - ollama-docker
+    ports:
+      - 11434:11434
+    tty: true
+    volumes:
+      - ollama:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_KEEP_ALIVE=24h
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64
+      - ALLOW_EXTERNAL=true
+    labels:
+      - "org.opencontainers.image.ref.name=ubuntu"
+      - "org.opencontainers.image.version=22.04"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+      
+  ollama-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: ollama-webui
+    volumes:
+      - ollama-webui:/app/backend/data
+    depends_on:
+      - ollama
+    ports:
+      - 8080:8080
+    environment: # https://docs.openwebui.com/getting-started/env-configuration#default_models
+      - OLLAMA_BASE_URLS=http://host.docker.internal:11434 #comma separated ollama hosts
+      - ENV=dev
+      - WEBUI_AUTH=False
+      - WEBUI_NAME=valiantlynx AI
+      - WEBUI_URL=http://localhost:8080
+      - WEBUI_SECRET_KEY=t0p-s3cr3t
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    restart: unless-stopped
+    networks:
+      - ollama-docker
+
+networks:
+  ollama-docker:
+    external: false
+
+volumes:
+  ollama:
+    external: true
+  ollama-webui:

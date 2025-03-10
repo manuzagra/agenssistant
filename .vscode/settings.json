@@ -1,0 +1,7 @@
+{
+    "ruff.lineLength": 120,
+    "ruff.lint.enable": true,
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.defaultFoldingRangeProvider": "charliermarsh.ruff"
+}

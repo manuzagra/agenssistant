@@ -1,0 +1,61 @@
+{
+	"name": "Python 3",
+    "service": "app",
+	"workspaceFolder": "/workspace/agenssistant",
+
+    "dockerComposeFile": [
+        "../docker-compose.yml"
+    ],
+
+	"mounts": [
+		"source=projectname-bashhistory,target=/commandhistory,type=volume"
+	],
+
+	"customizations":{
+        "vscode": {
+            "extensions":[
+				"ms-python.python",
+				"ms-python.vscode-pylance",
+				"KevinRose.vsc-python-indent",
+				"njpwerner.autodocstring",
+				"charliermarsh.ruff"
+			],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+				"terminal.integrated.shell.linux": "/bin/bash"
+            }
+        }
+    },
+
+	"features": {
+		// https://github.com/devcontainers/features/blob/main/src/common-utils/README.md
+		"ghcr.io/devcontainers/features/common-utils:2":
+		{
+			"installZsh": true,
+			"configureZshAsDefaultShell": true,
+			"installOhMyZsh": true,
+			"installOhMyZshConfig": true,
+			"upgradePackages": true,
+			"username": "manu",
+			"nonFreePackages": false
+		},
+		// https://github.com/devcontainers/features/blob/main/src/python/README.md
+    	"ghcr.io/devcontainers/features/python:1":
+		{
+			"version": "none",
+			"installTools": true,
+			"toolsToInstall": "flake8,autopep8,black,yapf,mypy,pydocstyle,pycodestyle,bandit,pipenv,virtualenv,pytest,pylint",
+			"enableShared": false,
+			"installPath": "/usr/local/bin/python",
+			"installJupyterlab": false,
+		}
+	},
+	
+	"remoteUser": "root",
+	"containerUser": "root",
+
+	"postCreateCommand": "bash .devcontainer/postCreateScript.sh"
+
+
+
+}
