@@ -1,3 +1,4 @@
+import json
 import logging
 
 from telegram import Update
@@ -10,7 +11,8 @@ from telegram.ext import (
     filters,
 )
 
-from agenssistant_bot.utils import google_auth, helpers
+from agenssistant_bot.utils import helpers
+from agenssistant_utils import google_auth
 
 # Logging
 logging.basicConfig(
@@ -30,21 +32,27 @@ DESCRIPTION = "Setup Google Calendar"
 
 
 # States
-_INSTRUCTIONS, _TOKEN, _ERROR = range(3)
+_INSTRUCTIONS, _TOKEN = range(2)
 
 
 # Conversation Handlers
 async def _display_instructions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Display instructions to set up the Google Calendar API and provide the link to authorize the bot."""
 
-    if google_auth.get_google_credentials(context, SCOPES, refresh=True):
+    if "google_auth_credentials_json" in context.user_data and google_auth.get_google_credentials(
+        json.loads(context.user_data["google_auth_credentials_json"]), SCOPES, refresh=True
+    ):
         text = "Google Calendar is already set up."
         await helpers.reply_text_everywhere(update, text)
         return ConversationHandler.END
 
     flow = google_auth.get_google_auth_flow(SCOPES)
     if flow is None:
-        return _ERROR
+        logger.error("It wasnt possible to finish the process of seting up the google calendar.")
+        text = "There was an error while trying to set up the Google Calendar. The bot may not be correctly configured.\nPlease try again later."
+        await helpers.reply_text_everywhere(update, text)
+
+        return ConversationHandler.END
 
     auth_url, state = flow.authorization_url(access_type="offline", prompt="consent")
     context.user_data["google_auth_flow_state"] = state
@@ -67,26 +75,19 @@ async def _process_token(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     token = update.message.text.strip()
 
-    flow = google_auth.get_google_auth_flow()
+    flow = google_auth.get_google_auth_flow(SCOPES)
 
-    flow.fetch_token(code=token, state=context.user_data["google_auth_flow_state"])
-    context.user_data["google_auth_credentials_json"] = flow.credentials.to_json()
+    try:
+        flow.fetch_token(code=token, state=context.user_data["google_auth_flow_state"])
+        context.user_data["google_auth_credentials_json"] = flow.credentials.to_json()
+    except Exception as e:
+        logger.error(f"Error while fetching token: {e}")
+        await update.message.reply_text("The token introduced is not valid. Please try again.")
+        return ConversationHandler.END
 
     await update.message.reply_text(
         "Authorization completed successfully. You can now use the bot with your Google Calendar."
     )
-
-    return ConversationHandler.END
-
-
-async def _error_notification(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Notify the user that an error occurred while setting up the Google Calendar."""
-
-    logger.error("It wasnt possible to finish the process of seting up the google calendar.")
-
-    text = "There was an error while trying to set up the Google Calendar. The bot may not be correctly configured.\nPlease try again later."
-
-    await helpers.reply_text_everywhere(update, text)
 
     return ConversationHandler.END
 
@@ -100,7 +101,6 @@ conversation_handler = ConversationHandler(
     states={
         _INSTRUCTIONS: [MessageHandler(filters.TEXT & ~filters.COMMAND, _display_instructions)],
         _TOKEN: [MessageHandler(filters.TEXT & ~filters.COMMAND, _process_token)],
-        _ERROR: [MessageHandler(filters.TEXT & ~filters.COMMAND, _error_notification)],
     },
-    fallbacks=[MessageHandler(filters.TEXT & ~filters.COMMAND, _error_notification)],
+    fallbacks=[],
 )

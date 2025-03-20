@@ -1,15 +1,16 @@
-import json
 import logging
 import os
-from typing import Optional
+from typing import Dict, List, Optional, Union
 
 from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-from telegram.ext import ContextTypes
 
 logger = logging.getLogger(__name__)
+
+
+GoogleCredentialsInfoDict = Dict[str, Union[str, List[str]]]
 
 
 def get_google_auth_flow(scopes: list[str]) -> Optional[InstalledAppFlow]:
@@ -31,9 +32,7 @@ def get_google_auth_flow(scopes: list[str]) -> Optional[InstalledAppFlow]:
     try:
         google_credentials_path = os.path.join(os.environ["SECRETS_PATH"], os.environ["GOOGLE_CREDENTIALS_FILE"])
         return InstalledAppFlow.from_client_secrets_file(
-            google_credentials_path,
-            scopes,
-            redirect_uri="urn:ietf:wg:oauth:2.0:oob",
+            google_credentials_path, scopes, redirect_uri="urn:ietf:wg:oauth:2.0:oob"
         )
     except KeyError:
         logger.error(
@@ -47,7 +46,7 @@ def get_google_auth_flow(scopes: list[str]) -> Optional[InstalledAppFlow]:
 
 
 def get_google_credentials(
-    context: ContextTypes.DEFAULT_TYPE, scopes: list[str], refresh: bool = False
+    google_auth_credentials_info: GoogleCredentialsInfoDict, scopes: list[str], refresh: bool = False
 ) -> Optional[Credentials]:
     """Retrieves Google OAuth2 credentials from the user context and optionally refreshes them.
 
@@ -55,7 +54,7 @@ def get_google_credentials(
     If the `refresh` parameter is `True`, it attempts to refresh the credentials if they are expired.
 
     Args:
-        context (ContextTypes.DEFAULT_TYPE): The context object from `telegram.ext` that stores user-specific data.
+        google_auth_credentials_info (GoogleCredentialsInfoDict): The information of the credentials stored in string in a dict (result of json.loads).
         scopes (list[str]): A list of Google API scopes that the application requires.
         refresh (bool, optional): If `True`, the credentials will be refreshed if they are expired. Defaults to False.
 
@@ -63,16 +62,12 @@ def get_google_credentials(
         Optional[Credentials]: An instance of `Credentials` if valid credentials are found and (if required) refreshed, otherwise `None`.
 
     Raises:
-        KeyError: Raised if the `google_auth_credentials_json` key is not found in the user context.
         RefreshError: Raised if the credentials are expired and cannot be refreshed.
     """
     try:
-        creds = Credentials.from_authorized_user_info(
-            json.loads(context.user_data["google_auth_credentials_json"]),
-            scopes,
-        )
+        creds = Credentials.from_authorized_user_info(google_auth_credentials_info, scopes)
         if refresh:
             creds.refresh(Request())
         return creds
-    except (KeyError, RefreshError):
+    except RefreshError:
         return None
