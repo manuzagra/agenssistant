@@ -13,7 +13,7 @@ from telegram.ext import (
 )
 
 from agenssistant_agent.agent import agentssistant
-from agenssistant_bot.utils import initializer
+from agenssistant_bot.utils import helpers, initializer
 from agenssistant_bot.workflows import google_calendar_setup
 
 # Logging
@@ -56,7 +56,7 @@ async def agent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data["agent_chat"].append({"role": "user", "content": update.message.text, "timestamp": time.time()})
     conversation = "\n".join([f"{msg['role']}: {msg['content']}" for msg in context.user_data["agent_chat"]])
 
-    result = await agentssistant.run(conversation)
+    result = await agentssistant.run(conversation, deps=helpers.build_agent_deps(update, context))
 
     context.user_data["agent_chat"].append({"role": "assistant", "content": result.data, "timestamp": time.time()})
 
