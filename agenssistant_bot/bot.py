@@ -13,7 +13,7 @@ from telegram.ext import (
 )
 
 from agenssistant_agent.agent import agentssistant
-from agenssistant_bot.utils import helpers, initializer
+from agenssistant_bot.utils import helpers, initializer, speech
 from agenssistant_bot.workflows import google_calendar_setup
 
 # Logging
@@ -52,8 +52,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @initializer.EnsureInitialized(initializer=Initializer())
 async def agent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Interact with the agent."""
+    if update.message.voice:
+        # Download the voice message into memory
+        voice_file = await update.message.voice.get_file()
+        voice_bytes = await voice_file.download_as_bytearray()
 
-    context.user_data["agent_chat"].append({"role": "user", "content": update.message.text, "timestamp": time.time()})
+        # Convert the voice message to text
+        try:
+            user_message = await speech.convert_voice_to_text(voice_bytes)
+            await update.message.reply_text(f"Transcribed text: {user_message}")
+        except Exception as e:
+            await update.message.reply_text(f"Error: {str(e)}")
+    else:
+        user_message = update.message.text
+
+    context.user_data["agent_chat"].append(
+        {"role": "user", "content": user_message, "timestamp": time.time()}
+    )
     conversation = "\n".join([f"{msg['role']}: {msg['content']}" for msg in context.user_data["agent_chat"]])
 
     result = await agentssistant.run(conversation, deps=helpers.build_agent_deps(update, context))
