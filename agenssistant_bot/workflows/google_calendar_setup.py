@@ -12,13 +12,9 @@ from telegram.ext import (
 )
 
 from agenssistant_bot.utils import helpers
-from agenssistant_utils import google_auth
+from agenssistant_common import google_auth
 
 # Logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
 logger = logging.getLogger(__name__)
 
 
