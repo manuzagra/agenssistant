@@ -1,6 +1,8 @@
+import json
 import logging
 import os
 import time
+import traceback
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -66,9 +68,7 @@ async def agent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         user_message = update.message.text
 
-    context.user_data["agent_chat"].append(
-        {"role": "user", "content": user_message, "timestamp": time.time()}
-    )
+    context.user_data["agent_chat"].append({"role": "user", "content": user_message, "timestamp": time.time()})
     conversation = "\n".join([f"{msg['role']}: {msg['content']}" for msg in context.user_data["agent_chat"]])
 
     result = await agentssistant.run(conversation, deps=helpers.build_agent_deps(update, context))
@@ -76,6 +76,28 @@ async def agent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data["agent_chat"].append({"role": "assistant", "content": result.data, "timestamp": time.time()})
 
     await update.message.reply_text(result.data)
+
+
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log the error and send a telegram message ."""
+
+    logger.error("Exception while handling an update:", exc_info=context.error)
+
+    tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+    tb_string = "".join(tb_list)
+
+    update_str = update.to_dict() if isinstance(update, Update) else str(update)
+
+    message = (
+        "An exception was raised while handling an update\n"
+        f"update = {json.dumps(update_str, indent=2, ensure_ascii=False)}"
+        "\n\n"
+        f"context.chat_data = {str(context.chat_data)}\n\n"
+        f"context.user_data = {str(context.user_data)}\n\n"
+        f"{tb_string}"
+    )
+
+    await update.message.reply_text(message)
 
 
 def main() -> None:
@@ -92,6 +114,8 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(google_calendar_setup.conversation_handler)
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, agent))
+
+    application.add_error_handler(error_handler)
 
     # Run poll
     application.run_polling()
